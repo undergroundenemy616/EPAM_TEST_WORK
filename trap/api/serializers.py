@@ -48,14 +48,3 @@ class ChildCommentsViewSerializer(BaseCommentSerializer):
         attrs['comment_type'] = comment_type
         attrs['entity_id'] = entity_id
         return attrs
-
-    def get_entity(self):
-        comment_type = self.validated_data['comment_type']
-        entity_id = self.validated_data['entity_id']
-        if comment_type == 'reply_to':
-            comment = Comment.objects.get(reply_to__pk=entity_id)
-        elif comment_type == 'post':
-            comment = Comment.objects.get(post__pk=entity_id, reply_to=None)
-        else:
-            comment = Comment.objects.get(profile_pk=entity_id, reply_to=None)
-        return comment
