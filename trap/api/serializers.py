@@ -4,9 +4,9 @@ from rest_framework.exceptions import ValidationError
 
 
 class BaseCommentSerializer(serializers.ModelSerializer):
-    reply_to = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False, allow_null=True)
-    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), required=False, allow_null=True)
-    profile = serializers.PrimaryKeyRelatedField(queryset=Profile.objects.all(), required=False, allow_null=True)
+    reply_to = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False, allow_null=False)
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), required=False, allow_null=False)
+    profile = serializers.PrimaryKeyRelatedField(queryset=Profile.objects.all(), required=False, allow_null=False)
 
     class Meta:
         model = Comment
