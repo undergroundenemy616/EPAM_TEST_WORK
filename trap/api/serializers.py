@@ -1,7 +1,6 @@
 from comments.models import Comment, Post, Profile
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import get_object_or_404
 
 
 class BaseCommentSerializer(serializers.ModelSerializer):
@@ -12,6 +11,7 @@ class BaseCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = '__all__'
+        read_only_fields = ['owner']
         abstract = True
 
 
@@ -29,22 +29,9 @@ class CreateCommentSerializer(BaseCommentSerializer):
         return attrs
 
 
-class ChildCommentsViewSerializer(BaseCommentSerializer):
-    def validate(self, attrs):
-        comment_type = self.context['request'].query_params.get('type')
-        entity_id = self.context['request'].query_params.get('entity_id')
-        if not comment_type:
-            raise ValidationError('Type of comment is required ')
-        if not entity_id:
-            raise ValidationError('Id if entity is required')
-        if comment_type not in ['reply_to', 'post', 'profile']:
-            raise ValidationError('Invalid type of comment ')
-        if comment_type == 'reply_to':
-            get_object_or_404(Comment, pk=entity_id)
-        elif comment_type == 'post':
-            get_object_or_404(Post, pk=entity_id)
-        else:
-            get_object_or_404(Profile, pk=entity_id)
-        attrs['comment_type'] = comment_type
-        attrs['entity_id'] = entity_id
-        return attrs
+class ChildCommentsSerializer(BaseCommentSerializer):
+    def to_representation(self, instance):
+        representation = super(ChildCommentsSerializer, self).to_representation(instance)
+        child_comments = BaseCommentSerializer(instance.get_all_children(include_self=False), many=True).data
+        representation['child_comments'] = child_comments
+        return representation

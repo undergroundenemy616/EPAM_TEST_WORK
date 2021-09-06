@@ -6,21 +6,22 @@ from drf_yasg import openapi
 from drf_yasg.generators import OpenAPISchemaGenerator
 from drf_yasg.views import get_schema_view
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, ListModelMixin
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from api.filters import CommentFilter
 from api.pagination import DynamicPageNumberPagination
-from api.serializers import (BaseCommentSerializer,
-                             ChildCommentsViewSerializer,
+from api.serializers import (BaseCommentSerializer, ChildCommentsSerializer,
                              CreateCommentSerializer)
 
 
 class APISchemeGenerator(OpenAPISchemaGenerator):
     def get_schema(self, request=None, public=False):
         schema = super().get_schema(request, public)
-        schema.host = '127.0.0.1:8000'
+        schema.host = '0.0.0.0:80'
         schema.schemes = [f'http', f'https']
         return schema
 
@@ -38,30 +39,50 @@ def get_swagger() -> Any:
     return swagger
 
 
-class CreateCommentView(CreateModelMixin, GenericViewSet):
-    serializer_class = CreateCommentSerializer
-    queryset = Comment.objects.select_related('reply_to', 'post', 'profile')
-    permission_classes = [AllowAny]
-
-
-class FirstLevelCommentsView(ListModelMixin, GenericViewSet):
+class CommentsViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
     serializer_class = BaseCommentSerializer
-    queryset = Comment.objects.select_related('reply_to', 'post', 'profile').filter(reply_to=None)
+    queryset = Comment.objects.select_related('reply_to', 'post', 'profile', 'owner')
     permission_classes = [AllowAny]
-    pagination_class = DynamicPageNumberPagination
+    filterset_class = CommentFilter
     filter_backends = [DjangoFilterBackend]
-    filter_fields = ('post', 'profile')
+    pagination_class = DynamicPageNumberPagination
 
+    def get_queryset(self):
+        if self.action == 'first_level_comments':
+            return self.queryset.filter(reply_to=None)
+        else:
+            return self.queryset
 
-class ChildCommentsView(ListModelMixin, GenericViewSet):
-    serializer_class = ChildCommentsViewSerializer
-    queryset = Comment.objects.select_related('parent', 'post', 'profile')
-    permission_classes = [AllowAny]
+    def get_serializer_class(self):
+        if self.action == 'get_child_comments':
+            return ChildCommentsSerializer
+        elif self.action == 'create_comment':
+            return CreateCommentSerializer
+        else:
+            return self.serializer_class
 
-    def list(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        comment_type = serializer.validated_data['comment_type']
-        entity_id = serializer.validated_data['entity_id']
-        comments = list(Comment.objects.get_entity(comment_type=comment_type, entity_id=entity_id).get_all_children(include_self=True))
-        return Response(BaseCommentSerializer(comments, many=True).data, status=status.HTTP_200_OK)
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    @action(methods=['post'], detail=False)
+    def create_comment(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+    @action(methods=['get'], detail=False)
+    def get_first_level_comments(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    @action(methods=['get'], detail=False)
+    def get_child_comments(self, request, *args, **kwargs):
+        first_level_comments = CommentFilter(data=request.query_params, queryset=self.get_queryset()).qs
+        return Response(data=self.get_serializer(first_level_comments, many=True).data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False)
+    def download_comments_csv(self, request, *args, **kwargs):
+        comments = CommentFilter(data=request.query_params, queryset=self.get_queryset()).qs
+        response = Comment.queryset_to_csv_response(comments)
+        return response
+
+    @action(methods=['get'], detail=False)
+    def get_user_comments(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
