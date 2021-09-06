@@ -48,10 +48,10 @@ class CommentsViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
     pagination_class = DynamicPageNumberPagination
 
     def get_queryset(self):
-        if self.action == 'first_level_comments':
-            return self.queryset.filter(reply_to=None)
-        else:
-            return self.queryset
+        if self.action == 'get_first_level_comments':
+            if ['post', 'profile'] in self.request.query_params:
+                return self.queryset.filter(reply_to=None)
+        return self.queryset
 
     def get_serializer_class(self):
         if self.action == 'get_child_comments':
