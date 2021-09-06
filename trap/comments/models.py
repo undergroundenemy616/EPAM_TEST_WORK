@@ -65,7 +65,7 @@ class Comment(BaseModel):
         verbose_name = _('комментарий')
         verbose_name_plural = _('комментарии')
 
-    def get_all_children(self, include_self=True):
+    def get_all_children(self, include_self=True) -> list:
         comments = []
         if include_self:
             comments.append(self)
@@ -76,7 +76,7 @@ class Comment(BaseModel):
         return comments
 
     @classmethod
-    def queryset_to_csv_response(cls, queryset):
+    def queryset_to_csv_response(cls, queryset) -> HttpResponse:
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="comments.csv"'
         writter = csv.writer(response)

@@ -18,4 +18,4 @@ urlpatterns = [
     path('token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 
-urlpatterns += comment_router.urls[2:]
+urlpatterns += comment_router.urls

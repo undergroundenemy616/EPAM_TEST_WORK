@@ -47,30 +47,16 @@ class CommentsViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
     filter_backends = [DjangoFilterBackend]
     pagination_class = DynamicPageNumberPagination
 
-    def get_queryset(self):
-        if self.action == 'get_first_level_comments':
-            if ['post', 'profile'] in self.request.query_params:
-                return self.queryset.filter(reply_to=None)
-        return self.queryset
-
     def get_serializer_class(self):
         if self.action == 'get_child_comments':
             return ChildCommentsSerializer
-        elif self.action == 'create_comment':
+        elif self.action == 'create':
             return CreateCommentSerializer
         else:
             return self.serializer_class
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-
-    @action(methods=['post'], detail=False)
-    def create_comment(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
-
-    @action(methods=['get'], detail=False)
-    def get_first_level_comments(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
 
     @action(methods=['get'], detail=False)
     def get_child_comments(self, request, *args, **kwargs):
@@ -82,7 +68,3 @@ class CommentsViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
         comments = CommentFilter(data=request.query_params, queryset=self.get_queryset()).qs
         response = Comment.queryset_to_csv_response(comments)
         return response
-
-    @action(methods=['get'], detail=False)
-    def get_user_comments(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
