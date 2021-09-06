@@ -32,6 +32,6 @@ class CreateCommentSerializer(BaseCommentSerializer):
 class ChildCommentsSerializer(BaseCommentSerializer):
     def to_representation(self, instance):
         representation = super(ChildCommentsSerializer, self).to_representation(instance)
-        child_comments = BaseCommentSerializer(instance.get_all_children(include_self=False), many=True).data
+        child_comments = ChildCommentsSerializer(instance.get_all_children(include_self=False), many=True).data
         representation['child_comments'] = child_comments
         return representation
