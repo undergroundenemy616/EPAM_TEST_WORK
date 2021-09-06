@@ -1,21 +1,10 @@
+import csv
 import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
-
-
-class CommentManager(models.Manager):
-    use_in_migrations = True
-
-    def get_entity(self, comment_type, entity_id):
-        if comment_type == 'reply_to':
-            comment = Comment.objects.get(reply_to__pk=entity_id)
-        elif comment_type == 'post':
-            comment = Comment.objects.get(post__pk=entity_id, reply_to=None)
-        else:
-            comment = Comment.objects.get(profile_pk=entity_id, reply_to=None)
-        return comment
 
 
 class User(AbstractUser):
@@ -70,8 +59,7 @@ class Comment(BaseModel):
     reply_to = models.ForeignKey('self', null=True, on_delete=models.CASCADE, default=None, blank=True)
     post = models.ForeignKey(Post, related_name="comments", on_delete=models.CASCADE, null=True, blank=True)
     profile = models.ForeignKey(Profile, related_name="comments", on_delete=models.CASCADE, null=True, blank=True)
-
-    objects = CommentManager()
+    owner = models.ForeignKey(User, related_name="comments", on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         verbose_name = _('комментарий')
@@ -88,14 +76,16 @@ class Comment(BaseModel):
         return comments
 
     @classmethod
-    def get_entity(cls, comment_type, entity_id):
-        if comment_type == 'reply_to':
-            comment = cls.__class__.objects.get(reply_to__pk=entity_id)
-        elif comment_type == 'post':
-            comment = cls.__class__.objects.get(post__pk=entity_id, reply_to=None)
-        else:
-            comment = cls.__class__.objects.get(profile_pk=entity_id, reply_to=None)
-        return comment
+    def queryset_to_csv_response(cls, queryset):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="comments.csv"'
+        writter = csv.writer(response)
+        writter.writerow(['id', 'created_at', 'updated_at', 'title',
+                          'body', 'reply_to', 'post', 'profile', 'owner'])
+        for comment in queryset:
+            writter.writerow([comment.id, comment.created_at, comment.updated_at, comment.title,
+                              comment.body, comment.reply_to, comment.post, comment.profile, comment.owner])
+        return response
 
     def __str__(self):
         return self.title
